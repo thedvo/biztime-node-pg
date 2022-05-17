@@ -70,7 +70,7 @@ router.patch('/:code', async (req, res, next) => {
 		if (results.rows.length === 0) {
 			throw new ExpressError(`Can't update company with code of ${code}`, 404);
 		}
-		return res.send({ company: results.rows[0] });
+		return res.json({ company: results.rows[0] });
 	} catch (e) {
 		return next(e);
 	}
@@ -83,9 +83,10 @@ router.patch('/:code', async (req, res, next) => {
 
 router.delete('/:id', async (req, res, next) => {
 	try {
-		const results = await db.query('DELETE FROM companies WHERE code=$1', [
-			request.params.code,
-		]);
+		const results = await db.query(
+			'DELETE FROM companies WHERE code=$1 RETURNING code',
+			[request.params.code]
+		);
 
 		if (results.rows.length === 0) {
 			throw new ExpressError(
