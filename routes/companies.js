@@ -1,6 +1,7 @@
 const express = require('express');
 const ExpressError = require('../expressError');
 const db = require('../db');
+const slugify = require('slugify');
 
 let router = new express.Router();
 
@@ -8,7 +9,7 @@ let router = new express.Router();
 // Returns list of companies, like {companies: [{code, name}, ...]}
 router.get('/', async (req, res, next) => {
 	try {
-		const results = await db.query('SELECT * FROM companies');
+		const results = await db.query('SELECT code, name FROM companies');
 		return res.json({ companies: results.rows });
 	} catch (e) {
 		return next(e);
@@ -18,18 +19,36 @@ router.get('/', async (req, res, next) => {
 // GET /companies/[code]
 // Return obj of company: {company: {code, name, description}}
 // If the company given cannot be found, this should return a 404 status response.
-router.get('/:code', async (req, res, next) => {
+router.get('/:code', async function (req, res, next) {
 	try {
-		const { code } = req.params;
-		const results = await db.query('SELECT * FROM companies WHERE code = $1', [
-			code,
-		]);
-		if (results.rows.length === 0) {
-			throw new ExpressError(`Can't find company with code of ${code}`, 404);
+		let code = req.params.code;
+
+		const compResult = await db.query(
+			`SELECT code, name, description
+           FROM companies
+           WHERE code = $1`,
+			[code]
+		);
+
+		const invResult = await db.query(
+			`SELECT id
+           FROM invoices
+           WHERE comp_code = $1`,
+			[code]
+		);
+
+		if (compResult.rows.length === 0) {
+			throw new ExpressError(`No such company: ${code}`, 404);
 		}
-		return res.json({ company: results.rows[0] });
-	} catch (e) {
-		return next(e);
+
+		const company = compResult.rows[0];
+		const invoices = invResult.rows;
+
+		company.invoices = invoices.map((inv) => inv.id);
+
+		return res.json({ company: company });
+	} catch (err) {
+		return next(err);
 	}
 });
 
@@ -40,7 +59,9 @@ router.get('/:code', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
 	try {
-		const { code, name, description } = req.body;
+		const { name, description } = req.body;
+		let code = slugify(name, { lower: true });
+
 		const results = await db.query(
 			'INSERT INTO companies (code, name, description) VALUES ($1, $2, $3) RETURNING code, name, description',
 			[code, name, description]
@@ -57,7 +78,7 @@ router.post('/', async (req, res, next) => {
 // Needs to be given JSON like: {name, description}
 // Returns update company object: {company: {code, name, description}}
 
-router.patch('/:code', async (req, res, next) => {
+router.put('/:code', async (req, res, next) => {
 	try {
 		const { code } = req.params;
 		const { name, description } = req.body;
