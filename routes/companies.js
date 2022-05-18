@@ -42,9 +42,8 @@ router.post('/', async (req, res, next) => {
 	try {
 		const { code, name, description } = req.body;
 		const results = await db.query(
-			'INSERT INTO companies (code, name, description) VALUES ($1, $2, $3) RETURNING code, name, description'[
-				(code, name, description)
-			]
+			'INSERT INTO companies (code, name, description) VALUES ($1, $2, $3) RETURNING code, name, description',
+			[code, name, description]
 		);
 		return res.status(201).json({ company: results.rows[0] });
 	} catch (e) {
@@ -81,18 +80,15 @@ router.patch('/:code', async (req, res, next) => {
 // Should return 404 if company cannot be found.
 // Returns {status: "deleted"}
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:code', async (req, res, next) => {
 	try {
 		const results = await db.query(
 			'DELETE FROM companies WHERE code=$1 RETURNING code',
-			[request.params.code]
+			[req.params.code]
 		);
 
 		if (results.rows.length === 0) {
-			throw new ExpressError(
-				`No company with code: ${request.params.code}`,
-				404
-			);
+			throw new ExpressError(`No company with code: ${req.params.code}`, 404);
 		} else {
 			return res.json({ status: 'deleted' });
 		}

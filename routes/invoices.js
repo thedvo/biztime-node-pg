@@ -85,11 +85,14 @@ router.delete('/:id', async (req, res, next) => {
 	try {
 		const results = await db.query(
 			'DELETE FROM invoices WHERE id=$1 RETURNING id',
-			[id]
+			[req.params.id]
 		);
 
 		if (results.rows.length === 0) {
-			throw new ExpressError(`Can't delete user with id: ${id}`, 404);
+			throw new ExpressError(
+				`Can't delete user with id: ${req.params.id}`,
+				404
+			);
 		}
 		return res.json({ status: 'deleted' });
 	} catch (e) {
